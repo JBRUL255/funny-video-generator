@@ -1,6 +1,9 @@
-Flask>=2.0
-gunicorn
-moviepy
+flask
 requests
-gTTS
+moviepy
 openai
+pexels_api
+gtts
+pydub
+gunicorn
+python-dotenv
