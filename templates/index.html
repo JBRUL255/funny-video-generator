@@ -1,46 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>😂 Funny Video Generator</title>
+  <meta charset="UTF-8" />
+  <title>🎬 Funny Video Generator</title>
   <style>
-    body { font-family: Arial; text-align: center; background: #fafafa; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 1rem; margin: 2rem; }
-    video { width:100%; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.1); }
+    body { font-family: Arial; text-align: center; margin-top: 40px; background: #f5f5f5; }
+    video { width: 300px; height: auto; margin: 10px; border-radius: 10px; }
   </style>
 </head>
 <body>
   <h1>🎬 Funny Video Generator</h1>
-  <p><button onclick="generateVideo()">Generate New Video</button></p>
-  <div id="msg"></div>
-  <div class="grid">
-    {% for v in videos %}
-      <div>
-        <video controls preload="metadata">
-          <source src="/videos/{{ v.name }}" type="video/mp4">
-        </video>
-        <p><a href="/videos/{{ v.name }}" download>⬇️ Download</a></p>
-      </div>
-    {% endfor %}
-  </div>
-<script>
-async function generateVideo(){
-  document.getElementById("msg").innerText="⏳ Generating funny video...";
-  const r=await fetch("/generate"); const d=await r.json();
-  checkStatus(d.job_id);
-}
-async function checkStatus(id){
-  const res=await fetch("/status/"+id);
-  const data=await res.json();
-  if(data.status.startsWith("done")){
-    document.getElementById("msg").innerHTML="✅ Done! Refreshing...";
-    setTimeout(()=>window.location.reload(),3000);
-  }else if(data.status.startsWith("error")){
-    document.getElementById("msg").innerText="❌ "+data.status;
-  }else{
-    setTimeout(()=>checkStatus(id),3000);
-  }
-}
-</script>
+  <button onclick="generate()">Generate New Video</button>
+  <div id="status"></div>
+  <div id="videos"></div>
+
+  <script>
+    async function generate() {
+      document.getElementById('status').innerText = "Generating video...";
+      const res = await fetch("/generate", { method: "POST" });
+      const data = await res.json();
+      document.getElementById('status').innerText = `Started: ${data.joke}`;
+      setTimeout(() => window.location.reload(), 30000);
+    }
+  </script>
+
+  {% for v in videos %}
+  <video controls src="{{ v.url }}"></video>
+  {% endfor %}
 </body>
 </html>
