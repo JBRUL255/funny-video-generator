@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>🎬 Funny Video Generator</title>
+  <style>
+    body { font-family: Arial; background: #f5f5f5; text-align: center; }
+    h1 { color: #333; margin-top: 20px; }
+    button {
+      background: #ff4081; color: white; border: none;
+      padding: 10px 20px; border-radius: 8px; cursor: pointer;
+    }
+    video { width: 90%; max-width: 400px; margin: 10px; border-radius: 10px; box-shadow: 0 0 5px #ccc; }
+    .grid { display: flex; flex-wrap: wrap; justify-content: center; }
+  </style>
+</head>
+<body>
+  <h1>😂 Funny Video Generator</h1>
+  <p>Click below to generate trending funny videos!</p>
+  <button onclick="generate()">🎥 Generate New Video</button>
+
+  <div id="message"></div>
+
+  <h2>📱 Downloaded Videos</h2>
+  <div class="grid" id="videos">
+    {% for v in videos %}
+      <div>
+        <video controls src="{{ url_for('static', filename='videos/' + v) }}"></video><br>
+        <a href="{{ url_for('static', filename='videos/' + v) }}" download>⬇️ Download</a>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    async function generate() {
+      document.getElementById('message').innerHTML = '⏳ Downloading a funny video...';
+      const res = await fetch('/generate');
+      const data = await res.json();
+      document.getElementById('message').innerHTML =
+        `✅ ${data.message} <br><a href="${data.download_url}" target="_blank">Download Here</a>`;
+      location.reload();
+    }
+  </script>
+</body>
+</html>
