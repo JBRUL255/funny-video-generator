@@ -1,11 +1,6 @@
-Flask==3.0.3
-gunicorn==21.2.0
-requests==2.32.3
-moviepy==1.0.3
-imageio==2.31.1
-imageio-ffmpeg==0.4.9
-gTTS==2.5.3
-openai==1.44.0
-cloudinary==1.30.0
-apscheduler==3.10.1
-python-dotenv==1.0.1
+flask
+gunicorn
+moviepy
+requests
+python-dotenv
+cloudinary
