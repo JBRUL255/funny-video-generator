@@ -1,0 +1,6 @@
+Flask>=2.0
+gunicorn
+moviepy
+requests
+gTTS
+openai
