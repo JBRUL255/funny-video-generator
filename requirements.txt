@@ -7,3 +7,5 @@ gtts
 pydub
 gunicorn
 python-dotenv
+imageio
+imageio-ffmpeg
