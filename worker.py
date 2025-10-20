@@ -1,34 +1,29 @@
-import threading, time, uuid
-from generator import generate_final_video, VIDEO_DIR
+from generator import generate_final_video
+import threading
+import queue
 
-jobs = {}
-lock = threading.Lock()
+job_queue = queue.Queue()
+video_metadata = []  # store video URLs and status
 
-def enqueue_job():
-    job_id = str(uuid.uuid4())
-    with lock:
-        jobs[job_id] = {"status": "queued", "filename": None, "cloudinary_url": None}
-    threading.Thread(target=process_job, args=(job_id,)).start()
-    return job_id
+def worker_loop():
+    while True:
+        joke = job_queue.get()
+        if joke is None:
+            break
+        print("[Worker] Generating:", joke)
+        url = generate_final_video(joke)
+        if url:
+            video_metadata.append({"joke": joke, "url": url})
+        job_queue.task_done()
 
-def process_job(job_id):
-    with lock:
-        jobs[job_id]["status"] = "processing"
-    try:
-        filename, cloud_url = generate_final_video()
-        with lock:
-            jobs[job_id]["status"] = "done"
-            jobs[job_id]["filename"] = filename
-            jobs[job_id]["cloudinary_url"] = cloud_url
-    except Exception as e:
-        with lock:
-            jobs[job_id]["status"] = f"error: {e}"
 
-def get_job_status(job_id):
-    return jobs.get(job_id, {"status": "unknown"})
+def enqueue_job(joke_text):
+    job_queue.put(joke_text)
+
 
 def list_videos_metadata():
-    return [f for f in VIDEO_DIR.glob("*.mp4")]
+    return video_metadata
+
 
 def start_worker_thread():
-    print("✅ Worker thread ready.")
+    threading.Thread(target=worker_loop, daemon=True).start()
