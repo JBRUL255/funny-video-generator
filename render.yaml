@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: funny-video-generator
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: PIXABAY_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DAILY_LIMIT
+        value: 5
+  - type: worker
+    name: funny-video-generator-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py worker
