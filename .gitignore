@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.db
+outputs/
+clips_cache/
+music/
+.env
