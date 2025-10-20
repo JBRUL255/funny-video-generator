@@ -1,8 +1,5 @@
 __pycache__/
 *.pyc
+.env
+static/videos/
 *.db
-outputs/
-clips_cache/
-music/
-*.mp4
-*.mp3
