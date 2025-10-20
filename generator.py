@@ -1,76 +1,106 @@
-import os, random, requests, tempfile
+import os
+import random
+import requests
+import tempfile
 from pathlib import Path
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
-import cloudinary, cloudinary.uploader
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, AudioFileClip
+from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
-# === Ensure directories exist ===
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-VIDEO_DIR = STATIC_DIR / "videos"
-VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+load_dotenv()
 
-# === Environment setup ===
+# === ENVIRONMENT ===
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
-CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
+CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+API_KEY = os.getenv("CLOUDINARY_API_KEY")
+API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
-if CLOUDINARY_URL:
-    cloudinary.config(cloudinary_url=CLOUDINARY_URL)
+VIDEO_DIR = Path("static/videos")
+AUDIO_DIR = Path("static/music")
 
-MOCK_VIDEOS = [
-    "https://sample-videos.com/video123/mp4/360/sample-5s.mp4",
-    "https://sample-videos.com/video123/mp4/360/big_buck_bunny_360p_1mb.mp4",
-    "https://sample-videos.com/video123/mp4/360/sample-10s.mp4"
-]
+VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-def download_file(url, dest):
-    r = requests.get(url, stream=True, timeout=30)
-    r.raise_for_status()
-    with open(dest, "wb") as f:
-        for chunk in r.iter_content(8192):
-            f.write(chunk)
-    return dest
+cloudinary.config(
+    cloud_name=CLOUD_NAME,
+    api_key=API_KEY,
+    api_secret=API_SECRET,
+    secure=True
+)
 
-def get_background_music():
-    if not PIXABAY_API_KEY:
-        return None
+# === FETCH VIDEO FROM PIXABAY ===
+def get_pixabay_video():
+    url = f"https://pixabay.com/api/videos/?key={PIXABAY_API_KEY}&q=funny&per_page=50"
     try:
-        res = requests.get(
-            f"https://pixabay.com/api/?key={PIXABAY_API_KEY}&q=funny&media_type=music&per_page=5"
-        ).json()
-        hits = res.get("hits", [])
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+        hits = r.json().get("hits", [])
         if not hits:
-            return None
-        return hits[0]["audio"]
+            raise ValueError("No Pixabay videos found.")
+        return random.choice(hits)["videos"]["medium"]["url"]
     except Exception as e:
-        print("Pixabay error:", e)
+        print(f"[ERROR] Pixabay fetch failed: {e}")
         return None
 
-def generate_final_video():
-    base_url = random.choice(MOCK_VIDEOS)
-    filename = f"funny_{random.randint(1000,9999)}.mp4"
-    local_path = VIDEO_DIR / filename
-    temp_video = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
 
-    # Download video
-    download_file(base_url, temp_video)
-
-    # Compose with background music
-    clip = VideoFileClip(temp_video).resize(height=720)
-    audio_url = get_background_music()
-    if audio_url:
-        temp_audio = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
-        download_file(audio_url, temp_audio)
-        bg_audio = AudioFileClip(temp_audio).volumex(0.2)
-        clip = clip.set_audio(bg_audio)
-    clip.write_videofile(str(local_path), codec="libx264", audio_codec="aac", threads=2, logger=None)
-
-    # Upload to Cloudinary
-    cloud_url = None
-    if CLOUDINARY_URL:
+def download_file(url, suffix):
+    for attempt in range(3):
         try:
-            upload_res = cloudinary.uploader.upload(str(local_path), resource_type="video")
-            cloud_url = upload_res.get("secure_url")
+            r = requests.get(url, stream=True, timeout=30)
+            r.raise_for_status()
+            temp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            for chunk in r.iter_content(1024 * 1024):
+                temp.write(chunk)
+            temp.close()
+            return temp.name
         except Exception as e:
-            print("Cloudinary upload failed:", e)
+            print(f"[Retry {attempt+1}/3] Download failed: {e}")
+    raise ConnectionError(f"Failed to download {url}")
 
-    return filename, cloud_url
+
+# === MAIN VIDEO CREATION ===
+def generate_final_video(joke_text="Why did the cat sit on the computer? To keep an eye on the mouse!"):
+    print("[INFO] Starting funny video generation...")
+    try:
+        video_url = get_pixabay_video()
+        if not video_url:
+            raise ValueError("No valid video source")
+
+        video_path = download_file(video_url, ".mp4")
+        music_url = "https://cdn.pixabay.com/download/audio/2023/07/05/audio_62b5b6e7ae.mp3"
+        music_path = download_file(music_url, ".mp3")
+
+        clip = VideoFileClip(video_path).subclip(0, 60)
+        clip = clip.resize(height=1080)
+
+        # Add caption text
+        text_clip = TextClip(
+            joke_text,
+            fontsize=70,
+            color="white",
+            font="Arial-Bold",
+            method="caption",
+            size=(clip.w - 100, None)
+        ).set_position(("center", "bottom")).set_duration(clip.duration)
+
+        audio_clip = AudioFileClip(music_path).volumex(0.2)
+        final = CompositeVideoClip([clip, text_clip])
+        final = final.set_audio(audio_clip)
+
+        output_path = VIDEO_DIR / f"funny_{random.randint(1000,9999)}.mp4"
+        final.write_videofile(str(output_path), fps=24, codec="libx264", audio_codec="aac")
+
+        # === Upload to Cloudinary ===
+        upload_result = cloudinary.uploader.upload_large(
+            str(output_path),
+            resource_type="video",
+            folder="funny_videos/"
+        )
+
+        print("[UPLOAD SUCCESS]", upload_result["secure_url"])
+        return upload_result["secure_url"]
+
+    except Exception as e:
+        print(f"[ERROR] Video generation failed: {e}")
+        return None
